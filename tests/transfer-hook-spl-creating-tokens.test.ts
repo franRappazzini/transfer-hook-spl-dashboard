@@ -32,12 +32,12 @@ describe("transfer-hook-spl", () => {
   const program = anchor.workspace.transferHookSpl as Program<TransferHookSpl>;
 
   // Generate keypair to use as address for the transfer-hook enabled mint
-  const mint = new anchor.web3.PublicKey("DSX2KwMHZ8BhHPYJqusypnvUn1RKqZNAUaTKgdTdqunW"); // Replace with your mint address created by the CLI
+  const mint = new anchor.web3.Keypair();
   const decimals = 9;
 
   // Sender token account address
   const ownerTokenAccount = getAssociatedTokenAddressSync(
-    mint,
+    mint.publicKey,
     wallet.publicKey,
     false,
     TOKEN_2022_PROGRAM_ID,
@@ -47,38 +47,85 @@ describe("transfer-hook-spl", () => {
   // Recipient token account address
   const recipient = anchor.web3.Keypair.generate();
   const destinationTokenAccount = getAssociatedTokenAddressSync(
-    mint,
+    mint.publicKey,
     recipient.publicKey,
     false,
     TOKEN_2022_PROGRAM_ID,
     ASSOCIATED_TOKEN_PROGRAM_ID
   );
 
+  // ExtraAccountMetaList address
+  // Store extra accounts required by the custom transfer hook instruction
+  // const [extraAccountMetaListPDA] = anchor.web3.PublicKey.findProgramAddressSync(
+  //   [Buffer.from("extra-account-metas"), mint.toBuffer()],
+  //   program.programId
+  // );
+
+  // const [tokenStatePDA] = anchor.web3.PublicKey.findProgramAddressSync(
+  //   [Buffer.from("token-state")],
+  //   program.programId
+  // );
+
+  it("Create Mint Account with Transfer Hook Extension", async () => {
+    const extensions = [ExtensionType.TransferHook];
+    const mintLen = getMintLen(extensions);
+    const lamports = await provider.connection.getMinimumBalanceForRentExemption(mintLen);
+
+    const transaction = new Transaction().add(
+      SystemProgram.createAccount({
+        fromPubkey: wallet.publicKey,
+        newAccountPubkey: mint.publicKey,
+        space: mintLen,
+        lamports: lamports,
+        programId: TOKEN_2022_PROGRAM_ID,
+      }),
+      createInitializeTransferHookInstruction(
+        mint.publicKey,
+        wallet.publicKey,
+        program.programId, // Transfer Hook Program ID
+        TOKEN_2022_PROGRAM_ID
+      ),
+      createInitializeMintInstruction(
+        mint.publicKey,
+        decimals,
+        wallet.publicKey,
+        null,
+        TOKEN_2022_PROGRAM_ID
+      )
+    );
+
+    const txSig = await sendAndConfirmTransaction(provider.connection, transaction, [
+      wallet.payer,
+      mint,
+    ]);
+    console.log(`Transaction Signature: ${txSig}`);
+  });
+
   // Create the two token accounts for the transfer-hook enabled mint
   // Fund the sender token account with 100 tokens
-  it.skip("Create Token Accounts and Mint Tokens", async () => {
+  it("Create Token Accounts and Mint Tokens", async () => {
     // 100 tokens
     const amount = 100 * LAMPORTS_PER_SOL;
 
     const transaction = new Transaction().add(
-      // createAssociatedTokenAccountInstruction(
-      //   wallet.publicKey,
-      //   ownerTokenAccount,
-      //   wallet.publicKey,
-      //   mint,
-      //   TOKEN_2022_PROGRAM_ID,
-      //   ASSOCIATED_TOKEN_PROGRAM_ID
-      // ),
+      createAssociatedTokenAccountInstruction(
+        wallet.publicKey,
+        ownerTokenAccount,
+        wallet.publicKey,
+        mint.publicKey,
+        TOKEN_2022_PROGRAM_ID,
+        ASSOCIATED_TOKEN_PROGRAM_ID
+      ),
       createAssociatedTokenAccountInstruction(
         wallet.publicKey,
         destinationTokenAccount,
         recipient.publicKey,
-        mint,
+        mint.publicKey,
         TOKEN_2022_PROGRAM_ID,
         ASSOCIATED_TOKEN_PROGRAM_ID
       ),
       createMintToInstruction(
-        mint,
+        mint.publicKey,
         ownerTokenAccount,
         wallet.publicKey,
         amount,
@@ -99,7 +146,7 @@ describe("transfer-hook-spl", () => {
     const initializeExtraAccountMetaListInstruction = await program.methods
       .initializeExtraAccountMetaList()
       .accounts({
-        mint: mint,
+        mint: mint.publicKey,
         // extraAccountMetaList: extraAccountMetaListPDA,
         tokenProgram: TOKEN_2022_PROGRAM_ID,
       })
@@ -116,7 +163,7 @@ describe("transfer-hook-spl", () => {
     console.log("Transaction Signature:", txSig);
   });
 
-  it.skip("Transfer Hook with Extra Account Meta", async () => {
+  it("Transfer Hook with Extra Account Meta", async () => {
     const amount = 50 * LAMPORTS_PER_SOL;
     const bigIntAmount = BigInt(amount);
 
@@ -124,7 +171,7 @@ describe("transfer-hook-spl", () => {
     const transferInstruction = await createTransferCheckedWithTransferHookInstruction(
       connection,
       ownerTokenAccount,
-      mint,
+      mint.publicKey,
       destinationTokenAccount,
       wallet.publicKey,
       bigIntAmount,

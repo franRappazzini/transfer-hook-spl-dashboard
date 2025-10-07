@@ -9,7 +9,7 @@ use spl_discriminator::SplDiscriminate;
 use spl_transfer_hook_interface::instruction::ExecuteInstruction;
 use spl_transfer_hook_interface::instruction::InitializeExtraAccountMetaListInstruction;
 
-declare_id!("4MGBD8eZQYLY1mBpuS6uXZw4qryZFccaUUySVTga7jZ9");
+declare_id!("4GqQV3oa7yhsEL5M1G8vJj55rEDM1SKXs8s3fyuhqJDj");
 
 #[program]
 pub mod transfer_hook_spl {
