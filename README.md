@@ -7,6 +7,10 @@ Monorepo that combines:
 
 ---
 
+## Auditware Radar audit
+
+<img src="https://img.shields.io/github/actions/workflow/status/franRappazzini/transfer-hook-spl-dashboard/radar.yaml">
+
 ## 📦 Repository Structure
 
 ```
